@@ -34,7 +34,7 @@ def discover_competitors(state: dict) -> dict:
     excluded = get_excluded("competitive_landscape")
     results = []
     for q in queries:
-        results.extend(search_tiered(q, max_results=7,
+        results.extend(search_tiered(q, max_results=12,
                                      preferred_domains=preferred,
                                      excluded_domains=excluded))
 

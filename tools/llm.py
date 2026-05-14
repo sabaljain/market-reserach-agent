@@ -59,3 +59,21 @@ def get_writer_llm() -> tuple[openai.OpenAI, str]:
     """Returns (OpenAI client, deployment name) for section writers and compiler."""
     deployment = os.environ.get("AZURE_DEPLOYMENT_WRITER", "gpt-5.4")
     return _maybe_wrap(_profiler_client()), deployment
+
+
+def get_lead_researcher_llm() -> tuple[openai.OpenAI, str]:
+    """Returns (OpenAI client, deployment name) for the Lead Researcher planning node."""
+    deployment = os.environ.get("AZURE_DEPLOYMENT_LEAD", "gpt-5")
+    return _maybe_wrap(_profiler_client()), deployment
+
+
+def get_subagent_llm() -> tuple[openai.OpenAI, str]:
+    """Returns (OpenAI client, deployment name) for section sub-agents (Phase B)."""
+    deployment = os.environ.get("AZURE_DEPLOYMENT_SUBAGENT", "gpt-4.1")
+    return _maybe_wrap(_profiler_client()), deployment
+
+
+def get_extraction_llm() -> tuple[openai.OpenAI, str]:
+    """Returns (OpenAI client, deployment name) for evidence extraction (Phase B)."""
+    deployment = os.environ.get("AZURE_DEPLOYMENT_EXTRACTION", "gpt-4.1-mini")
+    return _maybe_wrap(_profiler_client()), deployment

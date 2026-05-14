@@ -8,9 +8,10 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from graph import build_graph  # noqa: E402
 from state import ResearchScope  # noqa: E402
+from ui.history import save_run  # noqa: E402
 
 _NODE_LABELS = {
-    "planner": "📋 Planning report sections...",
+    "lead_researcher": "🧠 Planning research brief...",
     "section_router": "🔬 Researching section...",
     "compiler": "✍️ Synthesizing final report...",
 }
@@ -28,7 +29,14 @@ def run_research_with_callbacks(
     initial = {
         "scope": scope,
         "scope_preamble": "",
-        "section_specs": [],
+        "research_brief": {
+            "overall_research_question": "",
+            "sections": [],
+            "cross_section_themes": [],
+            "must_cover": [],
+            "must_avoid": [],
+            "persona_lens": "",
+        },
         "sections": [],
         "final_report": "",
     }
@@ -51,4 +59,13 @@ def run_research_with_callbacks(
 
     elapsed = round(time.time() - start, 1)
     on_progress(f"✅ Done in {elapsed}s")
+
+    # Persist run state + report locally
+    save_run(
+        industry=scope.get("industry", ""),
+        geography=scope.get("geography", ""),
+        state=accumulated,
+        duration=elapsed,
+    )
+
     return accumulated

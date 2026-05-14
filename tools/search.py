@@ -1,6 +1,16 @@
-import os
+"""Search facade with three-pass tiered retrieval over a pluggable provider.
 
-from tavily import TavilyClient
+The active backend is chosen by the SEARCH_PROVIDER env var:
+    "tavily"   (default) — uses Tavily AI search API
+    "openserp" — uses a self-hosted OpenSERP container (see docker-compose.openserp.yml)
+
+Switching providers does not require call-site changes; `search_tiered` keeps
+the same signature and result shape.
+"""
+from __future__ import annotations
+
+import os
+from typing import Callable
 
 try:
     from langsmith import traceable
@@ -8,7 +18,22 @@ except ImportError:
     def traceable(**_kw):  # type: ignore[misc]
         return lambda f: f
 
-_FALLBACK_THRESHOLD = 3
+_FALLBACK_THRESHOLD = 6
+
+# Provider type: callable matching the raw_search signature.
+ProviderFn = Callable[..., list[dict]]
+
+
+def get_provider() -> ProviderFn:
+    """Return the active search provider's raw_search function."""
+    name = os.environ.get("SEARCH_PROVIDER", "openserp").lower().strip()
+    if name == "openserp":
+        from tools.providers import openserp_provider
+        return openserp_provider.raw_search
+    if name == "tavily":
+        from tools.providers import tavily_provider
+        return tavily_provider.raw_search
+    raise ValueError(f"Unknown SEARCH_PROVIDER: {name!r} (expected 'tavily' or 'openserp')")
 
 
 def search(
@@ -17,26 +42,17 @@ def search(
     topic: str = "general",
     time_range: str | None = None,
 ) -> list[dict]:
-    """Run a Tavily search and return a list of result dicts.
+    """Run a single search and return a list of result dicts.
 
     Extra keys (score, published_date) are populated when available and used
     by the Trends agent for ranking; existing callers safely ignore them.
     """
-    client = TavilyClient(api_key=os.environ["TAVILY_API_KEY"])
-    kwargs: dict = {"max_results": max_results, "topic": topic}
-    if time_range:
-        kwargs["time_range"] = time_range
-    response = client.search(query, **kwargs)
-    return [
-        {
-            "title": r.get("title", ""),
-            "url": r.get("url", ""),
-            "content": r.get("content", ""),
-            "score": r.get("score", 0.0),
-            "published_date": r.get("published_date", ""),
-        }
-        for r in response.get("results", [])
-    ]
+    return get_provider()(
+        query,
+        max_results=max_results,
+        topic=topic,
+        time_range=time_range,
+    )
 
 
 @traceable(name="search_tiered", run_type="tool")
@@ -55,33 +71,28 @@ def search_tiered(
     Pass 3: drop both (if pass 2 still insufficient)             → tag "low"
 
     Results are deduplicated by URL across passes. Earlier-pass quality wins.
+    After all passes, results are reranked locally to recover relevance ordering
+    when the underlying provider doesn't supply a strong score signal.
     """
-    client = TavilyClient(api_key=os.environ["TAVILY_API_KEY"])
+    provider = get_provider()
     seen_urls: set[str] = set()
     results: list[dict] = []
 
     def _run_pass(include: list[str] | None, exclude: list[str] | None, quality: str) -> list[dict]:
-        kwargs: dict = {"max_results": max_results, "topic": topic}
-        if time_range:
-            kwargs["time_range"] = time_range
-        if include:
-            kwargs["include_domains"] = include
-        if exclude:
-            kwargs["exclude_domains"] = exclude
-        response = client.search(query, **kwargs)
+        raw = provider(
+            query,
+            max_results=max_results,
+            topic=topic,
+            time_range=time_range,
+            include_domains=include,
+            exclude_domains=exclude,
+        )
         out = []
-        for r in response.get("results", []):
+        for r in raw:
             url = r.get("url", "")
             if url and url not in seen_urls:
                 seen_urls.add(url)
-                out.append({
-                    "title": r.get("title", ""),
-                    "url": url,
-                    "content": r.get("content", ""),
-                    "score": r.get("score", 0.0),
-                    "published_date": r.get("published_date", ""),
-                    "source_quality": quality,
-                })
+                out.append({**r, "source_quality": quality})
         return out
 
     # Pass 1 — preferred sources
@@ -94,5 +105,13 @@ def search_tiered(
     # Pass 3 — low-quality last resort
     if len(results) < _FALLBACK_THRESHOLD:
         results.extend(_run_pass(None, None, "low"))
+
+    # Local rerank to recover ranking quality (esp. for providers without a native score).
+    try:
+        from tools.rerank import rerank
+        results = rerank(query, results, preferred_domains=preferred_domains or [])
+    except ImportError:
+        # rerank module optional during partial rollouts
+        pass
 
     return results

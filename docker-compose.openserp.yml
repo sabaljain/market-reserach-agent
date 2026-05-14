@@ -1,0 +1,21 @@
+# Self-hosted OpenSERP container — used as the default SEARCH_PROVIDER.
+#
+# Usage:
+#   docker compose -f docker-compose.openserp.yml up -d
+#   curl http://localhost:7000/health
+#
+# The agent reads OPENSERP_URL (default http://localhost:7000) when
+# SEARCH_PROVIDER=openserp.
+services:
+  openserp:
+    image: karust/openserp:latest
+    container_name: openserp
+    command: ["serve", "-a", "0.0.0.0", "-p", "7000"]
+    ports:
+      - "127.0.0.1:7000:7000"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:7000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3

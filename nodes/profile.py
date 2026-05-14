@@ -47,12 +47,12 @@ def _gather_research(name: str, geography: str = "") -> tuple[list[str], str]:
 
     targeted_queries = [
         # First-party: company website + news
-        (f"{name} official website about product", 2),
-        (f"{name} press release news announcement 2024 2025 2026", 3),
-        (f"{name} pricing plans features customers", 2),
+        (f"{name} official website about product", 4),
+        (f"{name} press release news announcement 2024 2025 2026", 5),
+        (f"{name} pricing plans features customers", 4),
         # Third-party: independent reviews + analysis (industry-agnostic wording)
-        (f"{name} independent review comparison analysis pros cons", 3),
-        (f"{name} customer reviews complaints limitations", 2),
+        (f"{name} independent review comparison analysis pros cons", 5),
+        (f"{name} customer reviews complaints limitations", 4),
     ]
 
     # Collect results, deduplicate by URL

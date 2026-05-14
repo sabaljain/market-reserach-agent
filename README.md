@@ -5,7 +5,8 @@ A LangGraph pipeline that takes an industry and geography, discovers 5–7 compe
 ## Prerequisites
 
 - Python 3.11+
-- A [Tavily](https://tavily.com) API key (free tier works)
+- Docker (for the default search backend, [OpenSERP](https://github.com/karust/openserp))
+  - Or, alternatively, a [Tavily](https://tavily.com) API key — set `SEARCH_PROVIDER=tavily`
 - An Azure AI Foundry workspace with:
   - A GPT-4.1-mini deployment (for discovery)
   - A Claude Sonnet 4.5 deployment via the Anthropic serverless endpoint (for profiling + synthesis)
@@ -22,6 +23,11 @@ cp .env.example .env
 ```
 
 ## Running
+
+**Start the search backend** (default OpenSERP — skip if using Tavily):
+```bash
+docker compose -f docker-compose.openserp.yml up -d
+```
 
 **Terminal (CLI):**
 ```bash
@@ -57,7 +63,9 @@ market_research_agent/
 │   └── synthesize.py    # synthesize_report node
 ├── tools/
 │   ├── llm.py           # Azure client factories
-│   ├── search.py        # Tavily wrapper
+│   ├── search.py        # provider-agnostic tiered search facade
+│   ├── providers/       # tavily_provider.py, openserp_provider.py
+│   ├── rerank.py        # local BM25 + domain-tier rerank
 │   └── scrape.py        # requests + BeautifulSoup wrapper
 └── prompts/
     ├── discover.md      # competitor extraction prompt

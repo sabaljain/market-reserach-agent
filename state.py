@@ -102,9 +102,57 @@ def render_scope_preamble(scope: ResearchScope) -> str:
     return "\n".join(lines)
 
 
+class SectionTask(TypedDict):
+    section_id: str
+    title: str
+    order: int
+    research_questions: list[str]
+    suggested_queries: list[str]
+    source_priorities: list[str]
+    geography_emphasis: str
+    output_focus: str
+    minimum_evidence_threshold: int
+
+
+class ResearchBrief(TypedDict):
+    overall_research_question: str
+    sections: list[SectionTask]
+    cross_section_themes: list[str]
+    must_cover: list[str]
+    must_avoid: list[str]
+    persona_lens: str
+
+
+# ── Structured findings (Phase B) ───────────────────────────────────────────
+
+class Finding(TypedDict):
+    id: str                                # e.g., "tr_001", "cl_003", "inv_002"
+    headline: str                          # the claim, in one sentence
+    evidence_summary: str                  # 2-4 sentences supporting the claim
+    evidence_ids: list[str]                # references to specific evidence items
+    confidence: str                        # "strong" | "moderate" | "weak_signal"
+    relevant_to_other_sections: list[str]  # section_ids this finding may matter to
+
+
+class Source(TypedDict):
+    url: str
+    title: str
+    section_relevance: list[str]           # which section_ids this source is relevant to
+    quality_tier: str                      # "preferred" | "general" | "low"
+
+
+class SectionFindings(TypedDict):
+    section_id: str
+    title: str
+    order: int
+    findings: list[Finding]
+    sources: list[Source]
+    sufficiency_self_assessment: str       # subagent's read on whether research was adequate
+
+
 class ResearchState(TypedDict):
     scope: ResearchScope
-    scope_preamble: str                          # rendered once by Planner
-    section_specs: list[dict]                    # populated by Planner
+    scope_preamble: str                            # = research_brief.persona_lens
+    research_brief: ResearchBrief                  # populated by Lead Researcher
     sections: Annotated[list[dict], operator.add]  # populated by Section Agents
-    final_report: str                            # populated by Compiler
+    final_report: str                              # populated by Compiler

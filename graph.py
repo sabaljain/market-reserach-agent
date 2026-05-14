@@ -2,7 +2,7 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.types import Send
 
 from nodes.compiler import compiler
-from nodes.planner import planner
+from nodes.lead_researcher import lead_researcher
 from nodes.sections import competitive_landscape, investment, trends
 from state import ResearchState
 
@@ -25,26 +25,26 @@ def _section_router(state: dict) -> dict:
 
 
 def _planner_fanout(state: ResearchState) -> list[Send]:
-    """Emit one Send per section_spec for parallel section execution."""
+    """Emit one Send per SectionTask for parallel section execution."""
     return [
         Send("section_router", {
-            "section_spec": spec,
+            "section_spec": task,
             "scope": state["scope"],
             "scope_preamble": state.get("scope_preamble", ""),
         })
-        for spec in state["section_specs"]
+        for task in state["research_brief"]["sections"]
     ]
 
 
 def build_graph():
     builder = StateGraph(ResearchState)
 
-    builder.add_node("planner", planner)
+    builder.add_node("lead_researcher", lead_researcher)
     builder.add_node("section_router", _section_router)
     builder.add_node("compiler", compiler)
 
-    builder.add_edge(START, "planner")
-    builder.add_conditional_edges("planner", _planner_fanout)
+    builder.add_edge(START, "lead_researcher")
+    builder.add_conditional_edges("lead_researcher", _planner_fanout)
     builder.add_edge("section_router", "compiler")
     builder.add_edge("compiler", END)
 
